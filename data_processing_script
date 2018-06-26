@@ -1,0 +1,264 @@
+### adapter trimming for single-end sequencing SLX-15837
+
+for f in *.gz; do sbatch --mem 8G -o $f.out -e $f.err -J cutadapt --wrap "~/.local/bin/cutadapt -m 10 -q 20 -O 3 -a CTGTCTCTTATACACATCT -o /scratcha/sblab/hansel01/data_seq/SLX-15837_fastq/fastq_trimmed/${f%%.fastq.gz}.trimmed.fq.gz $f"; done
+
+### alignment single-end for SLX-15837
+
+genome='/home/hansel01/reference_data/hg19_dm6/hg19_dm6.fa'; for f in *.trimmed.fq.gz; do sbatch --mem 16G -o $f.bwa.out -e $f.bwa.err -J bwa --wrap "/Users/marsic01/applications/bwa-0.7.15/bwa mem -t 8 -M $genome $f | /Users/hansel01/bin/samtools view -Sb -F2308 -q 10 > bam/${f%%.trimmed.fq.gz}.hg19.bam"; done
+
+
+
+# ==============================
+# merging files
+# ==============================
+# merge files of same condition and same sequencing run
+
+for f in *_L001_R1_001.hg19.bam; do sbatch --mem 8G -o $f.out -e $f.err -J merge --wrap "/Users/hansel01/bin/samtools merge -@8 ${f%%_L001_R1*}.hg19.merged.bam ${f%%_L001_*}_L00*_R1_001.hg19.bam"; done
+
+
+
+### sort bam files
+
+for f in *merged.bam; do sbatch --mem 16G -o $f.out -e $f.err -J sort --wrap "/Users/hansel01/bin/samtools sort -@ 8 $f > ${f%%.merged.bam}.sort.bam"; done
+
+
+
+# ===============================
+### mark and remove duplicates
+# ===============================
+
+for f in *sort.bam; do sbatch --mem 8G -o $f.out -e $f.err -J dups --wrap "java -Xmx7g -jar /home/hansel01/bin/picard.jar MarkDuplicates I=$f O=${f%%.sort.bam}.nodup.bam M=${f%%.sort.bam}.md.txt AS=true REMOVE_DUPLICATES=true"; done
+
+
+# Some basic dup and size stats
+
+grep 'Unknown Library' *txt > dups_info.txt
+
+for f in *nodup.bam; do echo $f;echo $f >> all_counts && /Users/hansel01/bin/samtools view -c $f >> all_counts; done
+
+
+# ==============================
+# call peaks using macs2 2.1.1.20160309
+# ==============================
+
+for f in *nodup.bam; do sbatch --mem 8G -o $f.out -e $f.err -J macs2 --wrap "macs2 callpeak --name macs2_output/${f%%.nodup.bam}.q005.all -t $f -c SLX-15837_S12.hg19.nodup.bam --format=BAM --gsize 'hs' --bw=300 --qvalue 0.05"; done
+
+
+# ==============================
+# create tdf files for visual inspection
+# ==============================
+
+#generate bai file using samtools index
+
+for f in *bam; do sbatch -o %j.$f.log --mem 16G -J index.$f --wrap "/home/bioinformatics/software/samtools/samtools-1.6/bin/samtools index -b $f"; done
+
+#TDF
+
+for f in *nodup.bam; do sbatch -o %j.$f.log --mem 8000 -J igv.$f --wrap "/Users/marsic01/applications/IGVTools/igvtools count -w 15 $f ${f%%.nodup.bam}.tdf /scratcha/sblab/hansel01/data_seq/hg19.chrom.sizes"; done
+
+
+
+# ==============================
+# bed file prep for DBA analysis
+# ==============================
+
+
+#Prep of concatenated and unified Peaks 
+
+cat *narrowPeak | cut -f 1-3 | sort -k 1,1 -k2,2n > concat_cut_sort_all_narrowPeaks.hg19.bed
+
+bedtools merge -i concat_cut_sort_all_narrowPeaks.hg19.bed > unified_all_narrowPeaks.hg19.bed
+
+
+##Coverage in unified G4 peaks for DBA
+
+for f in *.bam; do sbatch --mem 64G -o $f.out -e $f.err -J coverage --wrap "coverageBed -a /scratcha/sblab/hansel01/data_seq/SLX-15837_fastq/fastq_trimmed/bam/macs2_output/unified_all_narrowPeaks.hg19.bed -b $f -counts > union_of_all_peaks_hg19.${f%%.bam}.bg"; done
+
+#### DBA bed file prep
+
+echo 'chrom start end nreads sample_id' | tr ' ' '\t' > unified_all_narrowPeaks.cov.bed
+
+tableCat.py -i *.bg -r '.hg19.nodup.bg' >> unified_all_narrowPeaks.cov.bed
+
+
+####measure library size without mitochondria reads
+
+for bam in *bam; do samtools idxstats $bam | awk -v bam=$bam '$1 != "chrM" {sum+=$3}END{print bam, sum}'; done
+
+SLX-15837_S10.hg19.nodup.bam 36686053
+SLX-15837_S11.hg19.nodup.bam 37965844
+SLX-15837_S12.hg19.nodup.bam 32645606
+SLX-15837_S13.hg19.nodup.bam 40312529
+SLX-15837_S1.hg19.nodup.bam 37843931
+SLX-15837_S2.hg19.nodup.bam 35499204
+SLX-15837_S3.hg19.nodup.bam 35755378
+SLX-15837_S4.hg19.nodup.bam 33458247
+SLX-15837_S5.hg19.nodup.bam 35978064
+SLX-15837_S6.hg19.nodup.bam 39057995
+SLX-15837_S7.hg19.nodup.bam 42332616
+SLX-15837_S8.hg19.nodup.bam 28363331
+SLX-15837_S9.hg19.nodup.bam 34169509
+
+####################################################################################################################
+Aim: Generate bed files for G4 motif detection in G4 ChIP-seq peak fasta files and generate fold enrichment analysis
+####################################################################################################################
+
+#Download Dario Beraldi's PQS finder script and make it executable
+
+cd ~/bin
+
+wget https://github.com/dariober/bioinformatics-cafe/blob/master/fastaRegexFinder/fastaRegexFinder.py?raw=true -O fastaRegexFinder.py
+chmod a+x fastaRegexFinder.py
+
+#Run script to detect motifs in G4 ChIP-seq fasta files and intersect G4 ChIP-seq peak files with motif.bed and shuffled motif bed file.
+
+#1) Extract all motif categories from the human genome and run fold enrichment test.
+
+#2) Test how many G4 ChIP-seq peaks overlap with the categories PQS1-3, PQS4-5, PQS6-7, PQSlongloops, PQSsimplebuldge, PQScomplexbuldge,2-tetrads
+
+#N = any base
+
+#PQS with short loops 1-3
+
+#-r '([gG]{3,}\w{1,3}){3,}[gG]{3,}' = d[G3(N1-3)G3(N1-3)G3(N1-3)G3]
+
+#PQS with short loops 4-5
+
+#-r '([gG]{3,}\w{4,5}){3,}[gG]{3,}' = d[G3(N4-5)G3(N4-5)G3(N4-5)G3]
+
+#PQS with short loops 6-7
+
+#-r '([gG]{3,}\w{6,7}){3,}[gG]{3,}' = d[G3(N6-7)G3(N6-7)G3(N6-7)G3]
+
+#PQS with longer loops 1-12
+
+#-r '([gG]{3,}\w{1,12}){3,}[gG]{3,}' = d[G3(N1-12)G3(N1-12)G3(N1-12)G3]
+
+#PQS with very long central loop loops 8-21
+
+#-r '[gG]{3,}\w{1,7}[gG]{3,}\w{13,21}[gG]{3,}\w{1,7}[gG]{3,}' = d[G3(N8-21)G3(N8-21)G3(N8-21)G3]
+
+#PQS with 2 tetrads loops 1-12
+
+#-r '([gG]{2,}\w{1,7}){3,}[gG]{2,}' = d[G2(N1-7)G2(N1-7)G2(N1-7)G2]
+
+#PQ with simple buldge first tetrad
+
+#-r '[gG]{1,}\w{1,7}[gG]{2,}\w{1,7}([gG]{3,}\w{1,7}){2,}[gG]{3,}' = d[(G(N1-7)GG)(N1-7)G3(N1-7)G3(N1-7)G3]
+
+#PQ with simple buldge second tetrad
+
+#-r '[gG]{3,}\w{1,7}[gG]{1,}\w{1,7}[gG]{2,}\w{1,7}[gG]{3,}\w{1,7}[gG]{3,}' = d[G3(N1-7)(G(N1-7)GG)(N1-7)G3(N1-7)G3]
+
+#PQ with simple buldge third tetrad
+
+#-r '([gG]{3,}\w{1,7}){2,}[gG]{1,}\w{1,7}[gG]{2,}\w{1,7}[gG]{3,}' = d[G3(N1-7)G3(N1-7)(G(N1-7)GG)(N1-7)G3]
+
+#PQ with simple buldge fourth tetrad
+
+#-r '([gG]{3,}\w{1,7}){3,}[gG]{1,}\w{1,7}[gG]{2,}' = d[G3(N1-7)G3(N1-7)G3(N1-7)(G(N1-7)GG)]
+
+#PQ with complex buldge first and third tetrad
+
+#-r '[gG]{1,}\w{1,5}[gG]{2,}\w{1,7}[gG]{3,}\w{1,7}[gG]{1,}\w{1,5}[gG]{2,}\w{1,7}[gG]{3,}' = d[(G(N1-5)GG)(N1-7)G3(N1-7)(G(N1-5)GG)(N1-7)G3]
+
+#PQ with complex buldge second and fourth tetrad
+
+#-r '[gG]{3,}\w{1,7}[gG]{1,}\w{1,5}[gG]{2,}\w{1,7}[gG]{3,}\w{1,7}[gG]{1,}\w{1,5}[gG]{2,}' = d[G3(N1-7)(G(N1-5)GG)(N1-7)G3(N1-7)(G(N1-5)GG)]
+
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,3}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N1-3_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,3}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N1-3_hg19_test2.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,5}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N1-5_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{4,5}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N4-5_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{6,7}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N6-7_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,12}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N1-12_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,7}){3,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N1-7_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '[gG]{3,}\w{1,7}[gG]{3,}\w{13,21}[gG]{3,}\w{1,7}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_N1-7_N13-21_N1-7_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{2,}\w{1,7}){3,}[gG]{2,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_2-tetrads_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '[gG]{1,}\w{1,7}[gG]{2,}\w{1,7}([gG]{3,}\w{1,7}){2,}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_simple.buldge_1st.tetrad_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '[gG]{3,}\w{1,7}[gG]{1,}\w{1,7}[gG]{2,}\w{1,7}[gG]{3,}\w{1,7}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_simple.buldge_2nd.tetrad_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,7}){2,}[gG]{1,}\w{1,7}[gG]{2,}\w{1,7}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_simple.buldge_3rd.tetrad_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '([gG]{3,}\w{1,7}){3,}[gG]{1,}\w{1,7}[gG]{2,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_simple.buldge_4th.tetrad_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '[gG]{1,}\w{1,5}[gG]{2,}\w{1,7}[gG]{3,}\w{1,7}[gG]{1,}\w{1,5}[gG]{2,}\w{1,7}[gG]{3,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_complex.buldge_1st.and.3rd.tetrad_hg19.bed"
+
+sbatch --mem 8G -o G4_finder.out -e finder.err -J G4_find --wrap "fastaRegexFinder.py --quiet -r '[gG]{3,}\w{1,7}[gG]{1,}\w{1,5}[gG]{2,}\w{1,7}[gG]{3,}\w{1,7}[gG]{1,}\w{1,5}[gG]{2,}' -f /scratchb/sblab/spiege01/ENCODE_K562/reference_data/GM/hg19/Sequence/Bowtie2Index/bowtie2-build/genome.fa >> PQS_complex.buldge_2nd.and.4th.tetrad_hg19.bed"
+
+
+#Unify simple buldge files 
+
+cat *simple* | sort -k 1,1 -k2,2n | uniq > PQS_unified_simple.buldge.bed
+
+#Unify complex buldge and 2-tetrad files
+
+sbatch --mem 8G -o unifying -e uni.err -J unifying --wrap "cat PQS_complex.buldge_1st.and.3rd.tetrad_hg19.bed PQS_complex.buldge_2nd.and.4th.tetrad_hg19.bed PQS_2-tetrads_hg19.bed | sort -k 1,1 -k2,2n | uniq > PQS_unified_2-tetrad_complex.buldge.bed"
+
+#Unify long loop PQS files 
+
+cat PQS_N1-12_hg19.bed PQS_N1-7_N13-21_N1-7_hg19.bed | sort -k 1,1 -k2,2n | uniq > PQS_unified_long.loop.bed
+
+#Make individual PQS files uniqe by subtracting higher class from lower class PQS_N1-3_hg19.bed > PQS_N4-5_hg19.bed > PQS_N6-7_hg19.bed > PQS_unified_long.loop.bed > PQS_unified_simple.buldge.bed > PQS_unified_2-tetrad_complex.buldge.bed
+
+#make PQS_N4-5_hg19.bed by subtracting PQS_N1-3_hg19.bed from PQS_N1-5_hg19.bed
+subtractBed -A -a PQS_N1-5_hg19.bed -b PQS_N1-3_hg19.bed > PQS_N4-5_hg19_clean.bed
+
+#make PQS_N6-7_hg19.bed by subtracting PQS_N1-5_hg19.bed from PQS_N1-7_hg19.bed
+subtractBed -A -a PQS_N1-7_hg19.bed -b PQS_N1-5_hg19.bed > PQS_N6-7_hg19_clean.bed
+
+#clean long loop
+subtractBed -A -a PQS_unified_long.loop.bed -b PQS_N1-3_hg19.bed PQS_N4-5_hg19_clean.bed PQS_N6-7_hg19_clean.bed > PQS_unified_long.loop.clean.bed
+
+#clean simple buldge
+subtractBed -A -a PQS_unified_simple.buldge.bed -b PQS_N1-3_hg19.bed PQS_N4-5_hg19_clean.bed PQS_N6-7_hg19_clean.bed PQS_unified_long.loop.clean.bed > PQS_unified_simple.buldge.clean.bed
+
+#clean complex buldge/2-tetrad
+subtractBed -A -a PQS_unified_2-tetrad_complex.buldge.bed -b PQS_N1-3_hg19.bed PQS_N4-5_hg19_clean.bed PQS_N6-7_hg19_clean.bed PQS_unified_long.loop.clean.bed PQS_unified_simple.buldge.clean.bed > PQS_unified_2-tetrad_complex.buldge.clean.bed
+
+
+#Generate G4MYC_specific.regions.sort.bed file by sorting table 'diff.unt_up_vs_G4myc_down_U2OS.txt' from DBA analysis, see R script. Sort table using logFC <= -1, FDR < 0.05 to get coordinates for G4MYC_specific.regions.sort.bed   
+
+
+#fold enrichment analysis (shuffling G4MYC_specific.regions.sort.bed)
+
+n=(1 2 3 4 5 6 7 8 9 10); for f in G4MYC_specific.regions.sort.bed; do for i in "${!n[@]}"; do bedtools shuffle -chromFirst -noOverlapping -seed ${n[i]} -i $f -g /Users/hansel01/data_seq/SLX-15837_fastq/PQs_motif_anlaysis/hg19.genome3 | sort -k1,1 -k2,2n > ${f%%.bed}.shuffle_${n[i]}.bed; done; done
+
+for f in G4MYC_specific.regions.sort*.bed; do bedtools intersect -wa -a PQS_N1-3_hg19.bed -b $f > ${f%%.bed}.int.PQS.bed; done && for i in *.int.PQS.bed; do wc -l $i > ${i%%.bed}.sites; done && paste *.sites | sed 's/ /\t/g' | cut -f 1,3,5,7,9,11,13,15,17,19,21 | awk '{print $1/$2 "\t" $1/$3 "\t" $1/$4 "\t" $1/$5 "\t" $1/$6 "\t" $1/$7 "\t" $1/$8 "\t" $1/$9 "\t" $1/$10 "\t" $1/$11}' | head -$N | tail -1 | tr '\t' '\n' > pasted_FE_PQS_N1-3_G4ChIPshuffled && rm *.int.PQS.bed && rm *.int.PQS.sites
+
+for f in G4MYC_specific.regions.sort*.bed; do bedtools intersect -wa -a PQS_N4-5_hg19_clean.bed -b $f > ${f%%.bed}.int.PQS.bed; done && for i in *.int.PQS.bed; do wc -l $i > ${i%%.bed}.sites; done && paste *.sites | sed 's/ /\t/g' | cut -f 1,3,5,7,9,11,13,15,17,19,21 | awk '{print $1/$2 "\t" $1/$3 "\t" $1/$4 "\t" $1/$5 "\t" $1/$6 "\t" $1/$7 "\t" $1/$8 "\t" $1/$9 "\t" $1/$10 "\t" $1/$11}' | head -$N | tail -1 | tr '\t' '\n' > pasted_FE_PQS_N4-5_G4ChIPshuffled && rm *.int.PQS.bed && rm *.int.PQS.sites
+
+for f in G4MYC_specific.regions.sort*.bed; do bedtools intersect -wa -a PQS_N6-7_hg19_clean.bed -b $f > ${f%%.bed}.int.PQS.bed; done && for i in *.int.PQS.bed; do wc -l $i > ${i%%.bed}.sites; done && paste *.sites | sed 's/ /\t/g' | cut -f 1,3,5,7,9,11,13,15,17,19,21 | awk '{print $1/$2 "\t" $1/$3 "\t" $1/$4 "\t" $1/$5 "\t" $1/$6 "\t" $1/$7 "\t" $1/$8 "\t" $1/$9 "\t" $1/$10 "\t" $1/$11}' | head -$N | tail -1 | tr '\t' '\n' > pasted_FE_PQS_N6-7_G4ChIPshuffled && rm *.int.PQS.bed && rm *.int.PQS.sites
+
+for f in G4MYC_specific.regions.sort*.bed; do bedtools intersect -wa -a PQS_unified_long.loop.clean.bed -b $f > ${f%%.bed}.int.PQS.bed; done && for i in *.int.PQS.bed; do wc -l $i > ${i%%.bed}.sites; done && paste *.sites | sed 's/ /\t/g' | cut -f 1,3,5,7,9,11,13,15,17,19,21 | awk '{print $1/$2 "\t" $1/$3 "\t" $1/$4 "\t" $1/$5 "\t" $1/$6 "\t" $1/$7 "\t" $1/$8 "\t" $1/$9 "\t" $1/$10 "\t" $1/$11}' | head -$N | tail -1 | tr '\t' '\n' > pasted_FE_PQS_longloop_G4ChIPshuffled && rm *.int.PQS.bed && rm *.int.PQS.sites
+
+for f in G4MYC_specific.regions.sort*.bed; do bedtools intersect -wa -a PQS_unified_simple.buldge.clean.bed -b $f > ${f%%.bed}.int.PQS.bed; done && for i in *.int.PQS.bed; do wc -l $i > ${i%%.bed}.sites; done && paste *.sites | sed 's/ /\t/g' | cut -f 1,3,5,7,9,11,13,15,17,19,21 | awk '{print $1/$2 "\t" $1/$3 "\t" $1/$4 "\t" $1/$5 "\t" $1/$6 "\t" $1/$7 "\t" $1/$8 "\t" $1/$9 "\t" $1/$10 "\t" $1/$11}' | head -$N | tail -1 | tr '\t' '\n' > pasted_FE_PQS_simplebuldge_G4ChIPshuffled && rm *.int.PQS.bed && rm *.int.PQS.sites
+
+for f in G4MYC_specific.regions.sort*.bed; do bedtools intersect -wa -a PQS_unified_2-tetrad_complex.buldge.clean.bed -b $f > ${f%%.bed}.int.PQS.bed; done && for i in *.int.PQS.bed; do wc -l $i > ${i%%.bed}.sites; done && paste *.sites | sed 's/ /\t/g' | cut -f 1,3,5,7,9,11,13,15,17,19,21 | awk '{print $1/$2 "\t" $1/$3 "\t" $1/$4 "\t" $1/$5 "\t" $1/$6 "\t" $1/$7 "\t" $1/$8 "\t" $1/$9 "\t" $1/$10 "\t" $1/$11}' | head -$N | tail -1 | tr '\t' '\n' > pasted_FE_PQS_complexbuldge_2-tetrad_G4ChIPshuffled && rm *.int.PQS.bed && rm *.int.PQS.sites
+
+
+
+#To reveal PQs motif content in G4MYC_specific.regions.sort.bed file
+
+for f in G4MYC_specific.regions.sort.bed; do bedtools intersect -wa -v -a $f -b PQS_N1-3_hg19.bed > ${f%%.bed}.remains.a.int.PQS_N1-3_hg19.bed; done && for i in *remains.a.int.PQS_N1-3_hg19.bed; do wc -l $i > ${i%%.bed}.sites; done 
+
+for f in *.remains.a.int.PQS_N1-3_hg19.bed; do bedtools intersect -wa -v -a $f -b PQS_N4-5_hg19_clean.bed > ${f%%.remains.a.int.PQS_N1-3_hg19.bed}.remains.a.int.PQS_N4-5_hg19_clean.bed; done && for i in *.remains.a.int.PQS_N4-5_hg19_clean.bed; do wc -l $i > ${i%%.bed}.sites; done
+
+for f in *.remains.a.int.PQS_N4-5_hg19_clean.bed; do bedtools intersect -wa -v -a $f -b PQS_N6-7_hg19_clean.bed > ${f%%.remains.a.int.PQS_N4-5_hg19_clean.bed}.remains.a.int.PQS_N6-7_hg19_clean.bed; done && for i in *.remains.a.int.PQS_N6-7_hg19_clean.bed; do wc -l $i > ${i%%.bed}.sites; done 
+
+for f in *.remains.a.int.PQS_N6-7_hg19_clean.bed; do bedtools intersect -wa -v -a $f -b PQS_unified_long.loop.clean.bed > ${f%%.remains.a.int.PQS_N6-7_hg19_clean.bed}.remains.a.int.PQS_unified_long.loop.clean.bed; done && for i in *.remains.a.int.PQS_unified_long.loop.clean.bed; do wc -l $i > ${i%%.bed}.sites; done
+
+for f in *.remains.a.int.PQS_unified_long.loop.clean.bed; do bedtools intersect -wa -v -a $f -b PQS_unified_simple.buldge.clean.bed > ${f%%.remains.a.int.PQS_unified_long.loop.clean.bed}.remains.a.int.PQS_unified_simple.buldge.clean.bed; done && for i in *.remains.a.int.PQS_unified_simple.buldge.clean.bed; do wc -l $i > ${i%%.bed}.sites; done
+
+for f in *.remains.a.int.PQS_unified_simple.buldge.clean.bed; do bedtools intersect -wa -v -a $f -b PQS_unified_2-tetrad_complex.buldge.clean.bed > ${f%%.remains.a.int.PQS_unified_simple.buldge.clean.bed}.remains.a.int.PQS_unified_2-tetrad_complex.buldge.clean.bed; done && for i in *.remains.a.int.PQS_unified_2-tetrad_complex.buldge.clean.bed; do wc -l $i > ${i%%.bed}.sites; done
