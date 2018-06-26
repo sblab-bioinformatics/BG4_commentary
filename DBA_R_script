@@ -1,0 +1,198 @@
+#################################
+untreated_G4myc oligo competition
+#################################
+
+library(data.table)
+library(limma)
+library(edgeR)
+library(reshape2)
+library(dplyr)
+
+cnt<- fread('unified_all_narrowPeaks.cov.bed')
+
+distinct(cnt,sample_id)
+
+unt_vs_G4myc <- cnt[grep("union_of_all_peaks_hg19.SLX-15837_S10|union_of_all_peaks_hg19.SLX-15837_S5|union_of_all_peaks_hg19.SLX-15837_S6|union_of_all_peaks_hg19.SLX-15837_S7|union_of_all_peaks_hg19.SLX-15837_S8|union_of_all_peaks_hg19.SLX-15837_S9", sample_id),]
+
+distinct(unt_vs_G4myc,sample_id)
+
+unt_vs_G4myc[, locus := paste(chrom, start, end, sep= '_')]
+cntct<- dcast.data.table(dat= unt_vs_G4myc, locus ~ sample_id, value.var= 'nreads')
+y<- data.frame(cntct[, 2:ncol(cntct), with= FALSE])
+row.names(y)<- cntct$locus
+
+# Lib size *without* chrM from above:
+
+libSize<- c("union_of_all_peaks_hg19.SLX.15837_S10"=36686053,
+            "union_of_all_peaks_hg19.SLX.15837_S5"=35978064,
+            "union_of_all_peaks_hg19.SLX.15837_S6"=39057995,
+            "union_of_all_peaks_hg19.SLX.15837_S7"=42332616,
+            "union_of_all_peaks_hg19.SLX.15837_S8"=28363331,
+            "union_of_all_peaks_hg19.SLX.15837_S9"=34169509)
+
+
+group <- factor(c('G4', 'G4', 'unt', 'unt', 'G4', 'unt'))
+
+y<- DGEList(counts=y, group=group)
+stopifnot(rownames(y$samples) == names(libSize))
+y$samples$lib.size<- libSize
+y<- calcNormFactors(y, method= 'none')
+y<- estimateDisp(y)
+y<- estimateCommonDisp(y)
+y<- estimateTagwiseDisp(y)
+
+et<- exactTest(y, pair= levels(y$samples$group))
+
+detable<- data.frame(topTags(et, n= Inf)$table)
+detable$locus<- rownames(detable)
+detable<- data.table(detable)
+detable<- merge(detable, unique(cnt[, list(chrom, start, end, locus)]), by= 'locus')
+
+pal<- colorRampPalette(c("white", "lightblue", "yellow", "red"), space = "Lab")
+pdf('maplot.unt_up_vs_G4myc_down_U2OS.pdf', w= 12/2.54, h= 12/2.54, pointsize= 10)
+par(las= 1, mgp= c(1.75, 0.5, 0), bty= 'l', mar= c(3, 3, 3, 0.5))
+smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC',
+              main= "Differential G4 (G4ChIP)\n[Unt_up - G4myc_down_U2OS]", colramp= pal, col= 'blue')
+lines(loess.smooth(x= detable$logCPM, y= detable$logFC, span= 0.1), lwd= 2, col= 'grey60')
+abline(h= 0, col= 'grey30')
+points(x= detable$logCPM, y= detable$logFC, col= ifelse(detable$FDR < 0.05, '#FF000080', 'transparent'), cex= 0.5, pch= '.')
+mtext(side= 3, line= -1.2, text= sprintf('FDR < 0.05: %s', nrow(detable[FDR < 0.05 & logFC > 0])), adj= 1)
+mtext(side= 1, line= -1.2, text= sprintf('FDR < 0.05: %s', nrow(detable[FDR < 0.05 & logFC < 0])), adj= 1)
+grid(col= 'grey50')
+dev.off()
+
+write.table(detable, "diff.unt_up_vs_G4myc_down_U2OS.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
+
+
+
+
+#################################
+untreated_imotif_RET oligo competition
+#################################
+
+library(data.table)
+library(limma)
+library(edgeR)
+library(reshape2)
+library(dplyr)
+
+cnt<- fread('unified_all_narrowPeaks.cov.bed')
+
+distinct(cnt,sample_id)
+
+unt_vs_G4myc <- cnt[grep("union_of_all_peaks_hg19.SLX-15837_S13|union_of_all_peaks_hg19.SLX-15837_S4|union_of_all_peaks_hg19.SLX-15837_S6|union_of_all_peaks_hg19.SLX-15837_S7|union_of_all_peaks_hg19.SLX-15837_S3|union_of_all_peaks_hg19.SLX-15837_S9", sample_id),]
+
+distinct(unt_vs_G4myc,sample_id)
+
+unt_vs_G4myc[, locus := paste(chrom, start, end, sep= '_')]
+cntct<- dcast.data.table(dat= unt_vs_G4myc, locus ~ sample_id, value.var= 'nreads')
+y<- data.frame(cntct[, 2:ncol(cntct), with= FALSE])
+row.names(y)<- cntct$locus
+
+# Lib size *without* chrM from above:
+
+libSize<- c("union_of_all_peaks_hg19.SLX.15837_S13"=40312529,
+            "union_of_all_peaks_hg19.SLX.15837_S3"=35755378,
+            "union_of_all_peaks_hg19.SLX.15837_S4"=33458247,
+            "union_of_all_peaks_hg19.SLX.15837_S6"=39057995,
+            "union_of_all_peaks_hg19.SLX.15837_S7"=42332616,
+            "union_of_all_peaks_hg19.SLX.15837_S9"=34169509)
+
+
+group <- factor(c('imotif', 'imotif', 'imotif', 'unt', 'unt', 'unt'))
+
+y<- DGEList(counts=y, group=group)
+stopifnot(rownames(y$samples) == names(libSize))
+y$samples$lib.size<- libSize
+y<- calcNormFactors(y, method= 'none')
+y<- estimateDisp(y)
+y<- estimateCommonDisp(y)
+y<- estimateTagwiseDisp(y)
+
+et<- exactTest(y, pair= levels(y$samples$group))
+
+detable<- data.frame(topTags(et, n= Inf)$table)
+detable$locus<- rownames(detable)
+detable<- data.table(detable)
+detable<- merge(detable, unique(cnt[, list(chrom, start, end, locus)]), by= 'locus')
+
+pal<- colorRampPalette(c("white", "lightblue", "yellow", "red"), space = "Lab")
+pdf('maplot.unt_up_vs_imotif_RET_down_U2OS.pdf', w= 12/2.54, h= 12/2.54, pointsize= 10)
+par(las= 1, mgp= c(1.75, 0.5, 0), bty= 'l', mar= c(3, 3, 3, 0.5))
+smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC',
+              main= "Differential G4 (G4ChIP)\n[Unt_up - imotif_RET_down_U2OS]", colramp= pal, col= 'blue')
+lines(loess.smooth(x= detable$logCPM, y= detable$logFC, span= 0.1), lwd= 2, col= 'grey60')
+abline(h= 0, col= 'grey30')
+points(x= detable$logCPM, y= detable$logFC, col= ifelse(detable$FDR < 0.05, '#FF000080', 'transparent'), cex= 0.5, pch= '.')
+mtext(side= 3, line= -1.2, text= sprintf('FDR < 0.05: %s', nrow(detable[FDR < 0.05 & logFC > 0])), adj= 1)
+mtext(side= 1, line= -1.2, text= sprintf('FDR < 0.05: %s', nrow(detable[FDR < 0.05 & logFC < 0])), adj= 1)
+grid(col= 'grey50')
+dev.off()
+
+write.table(detable, "diff.unt_up_vs_imotif_RET_down_U2OS.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
+
+
+#################################
+untreated_imotif_Myc oligo competition
+#################################
+
+library(data.table)
+library(limma)
+library(edgeR)
+library(reshape2)
+library(dplyr)
+
+cnt<- fread('unified_all_mod_narrowPeaks.cov.bed')
+
+distinct(cnt,sample_id)
+
+unt_vs_G4myc <- cnt[grep("union_of_all_peaks_hg19.SLX-15837_S11.hg19|union_of_all_peaks_hg19.SLX-15837_S2.hg19|union_of_all_peaks_hg19.SLX-15837_S6.hg19|union_of_all_peaks_hg19.SLX-15837_S7.hg19|union_of_all_peaks_hg19.SLX-15837_S1.hg19|union_of_all_peaks_hg19.SLX-15837_S9.hg19", sample_id),]
+
+distinct(unt_vs_G4myc,sample_id)
+
+unt_vs_G4myc[, locus := paste(chrom, start, end, sep= '_')]
+cntct<- dcast.data.table(dat= unt_vs_G4myc, locus ~ sample_id, value.var= 'nreads')
+y<- data.frame(cntct[, 2:ncol(cntct), with= FALSE])
+row.names(y)<- cntct$locus
+
+# Lib size *without* chrM from above:
+
+libSize<- c("union_of_all_peaks_hg19.SLX.15837_S1.hg19"=37843931,
+            "union_of_all_peaks_hg19.SLX.15837_S11.hg19"=37965844,
+            "union_of_all_peaks_hg19.SLX.15837_S2.hg19"=35499204,
+            "union_of_all_peaks_hg19.SLX.15837_S6.hg19"=39057995,
+            "union_of_all_peaks_hg19.SLX.15837_S7.hg19"=42332616,
+            "union_of_all_peaks_hg19.SLX.15837_S9.hg19"=34169509)
+
+
+group <- factor(c('imotif', 'imotif', 'imotif', 'unt', 'unt', 'unt'))
+
+y<- DGEList(counts=y, group=group)
+stopifnot(rownames(y$samples) == names(libSize))
+y$samples$lib.size<- libSize
+y<- calcNormFactors(y, method= 'none')
+y<- estimateDisp(y)
+y<- estimateCommonDisp(y)
+y<- estimateTagwiseDisp(y)
+
+et<- exactTest(y, pair= levels(y$samples$group))
+
+detable<- data.frame(topTags(et, n= Inf)$table)
+detable$locus<- rownames(detable)
+detable<- data.table(detable)
+detable<- merge(detable, unique(cnt[, list(chrom, start, end, locus)]), by= 'locus')
+
+pal<- colorRampPalette(c("white", "lightblue", "yellow", "red"), space = "Lab")
+pdf('maplot.unt_up_vs_imotif_MYC_down_U2OS.pdf', w= 12/2.54, h= 12/2.54, pointsize= 10)
+par(las= 1, mgp= c(1.75, 0.5, 0), bty= 'l', mar= c(3, 3, 3, 0.5))
+smoothScatter(x= detable$logCPM, y= detable$logFC, xlab= 'logCPM', ylab= 'logFC',
+              main= "Differential G4 (G4ChIP)\n[Unt_up - imotif_MYC_down_U2OS]", colramp= pal, col= 'blue')
+lines(loess.smooth(x= detable$logCPM, y= detable$logFC, span= 0.1), lwd= 2, col= 'grey60')
+abline(h= 0, col= 'grey30')
+points(x= detable$logCPM, y= detable$logFC, col= ifelse(detable$FDR < 0.05, '#FF000080', 'transparent'), cex= 0.5, pch= '.')
+mtext(side= 3, line= -1.2, text= sprintf('FDR < 0.05: %s', nrow(detable[FDR < 0.05 & logFC > 0])), adj= 1)
+mtext(side= 1, line= -1.2, text= sprintf('FDR < 0.05: %s', nrow(detable[FDR < 0.05 & logFC < 0])), adj= 1)
+grid(col= 'grey50')
+dev.off()
+
+write.table(detable, "diff.unt_up_vs_imotif_MYC_down_U2OS.txt", row.names= FALSE, col.names= TRUE, sep= '\t', quote= FALSE)
