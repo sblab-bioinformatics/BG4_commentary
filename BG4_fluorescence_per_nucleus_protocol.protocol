@@ -1,0 +1,248 @@
+<protocol VERSION="4">
+<blocks>
+<workflow ID="559929478" blockType="plugins.adufour.blocks.lang.FileBatch" className="plugins.adufour.blocks.lang.FileBatch" collapsed="false" definedName="File batch" height="727" keepsResults="true" width="1217" xLocation="34" yLocation="0">
+<blocks>
+<workflow ID="1949936108" blockType="plugins.adufour.blocks.lang.SequenceSeriesBatch" className="plugins.adufour.blocks.lang.SequenceSeriesBatch" collapsed="false" definedName="Sequence series batch" height="653" keepsResults="true" width="951" xLocation="350" yLocation="6">
+<blocks>
+<block ID="1606704509" blockType="plugins.tprovoost.sequenceblocks.extract.ExtractChannel" className="plugins.tprovoost.sequenceblocks.SequenceBlocks" collapsed="false" definedName="Extract channel" height="108" keepsResults="true" width="242" xLocation="10" yLocation="47">
+<variables>
+<input>
+<variable ID="sequence" name="Sequence" runtime="false" visible="true"/>
+<variable ID="channel" name="Channel" runtime="false" value="0" visible="true"/>
+</input>
+<output>
+<variable ID="extracted" name="Extracted" runtime="false" visible="true"/>
+</output>
+</variables>
+</block>
+<block ID="703045377" blockType="plugins.adufour.hierarchicalkmeans.HierarchicalKMeans" className="plugins.adufour.hierarchicalkmeans.HierarchicalKMeans" collapsed="true" definedName="HK-Means" height="255" keepsResults="true" width="296" xLocation="339" yLocation="0">
+<variables>
+<input>
+<variable ID="Input" name="Input" runtime="false" visible="true"/>
+<variable ID="Gaussian pre-filter" name="Gaussian pre-filter" runtime="false" value="2.0" visible="true"/>
+<variable ID="Frame" name="Frame" runtime="false" value="0" visible="true"/>
+<variable ID="Number of classes" name="Intensity classes" runtime="false" value="5" visible="true"/>
+<variable ID="Min size (px)" name="Min object size (px)" runtime="false" value="1000" visible="true"/>
+<variable ID="Max size (px)" name="Max object size (px)" runtime="false" value="80000" visible="true"/>
+<variable ID="Final threshold" name="Min object intensity" runtime="false" value="0.0" visible="true"/>
+</input>
+<output>
+<variable ID="binary sequence" name="binary sequence" runtime="false" visible="true"/>
+<variable ID="output regions" name="list of ROI" runtime="false" visible="true"/>
+</output>
+</variables>
+</block>
+<block ID="1503198430" blockType="plugins.adufour.connectedcomponents.ConnectedComponents" className="plugins.adufour.connectedcomponents.ConnectedComponents" collapsed="true" definedName="Connected Components" height="366" keepsResults="true" width="339" xLocation="546" yLocation="7">
+<variables>
+<input>
+<variable ID="input" name="Input" runtime="false" visible="true"/>
+<variable ID="method" name="Extraction mode" runtime="false" value="BACKGROUND" visible="true"/>
+<variable ID="value" name="Value" runtime="false" value="0" visible="true"/>
+<variable ID="no edge (X)" name="Remove border objects (X)" runtime="false" value="true" visible="true"/>
+<variable ID="no edge (Y)" name="Remove border objects (Y)" runtime="false" value="true" visible="true"/>
+<variable ID="no edge (Z)" name="Remove border objects (Z)" runtime="false" value="false" visible="true"/>
+<variable ID="size filter" name="Filter objects by size" runtime="false" value="false" visible="true"/>
+<variable ID="min. size" name="Min. size" runtime="false" visible="true"/>
+<variable ID="max. size" name="Max. size" runtime="false" visible="true"/>
+<variable ID="Export to Excel" name="Export to Excel" runtime="false" value="false" visible="true"/>
+<variable ID="Excel file" name="Excel file" runtime="false" value="" visible="true"/>
+</input>
+<output>
+<variable ID="labeled sequence" name="output" runtime="false" visible="true"/>
+<variable ID="objects" name="components" runtime="false" visible="true"/>
+<variable ID="list of extracted ROI" name="list of ROI" runtime="false" visible="true"/>
+</output>
+</variables>
+</block>
+<block ID="342255751" blockType="plugins.stef.roi.bloc.property.SetROIColor" className="plugins.stef.roi.bloc.RoiBlocks" collapsed="true" definedName="Set ROI color" height="85" keepsResults="true" width="175" xLocation="386" yLocation="53">
+<variables>
+<input>
+<variable ID="rois" name="ROI(s)" runtime="false" visible="true"/>
+<variable ID="color" name="Color" runtime="false" value="java.awt.Color[r=0,g=255,b=0]" visible="true"/>
+</input>
+<output/>
+</variables>
+</block>
+<block ID="394625501" blockType="plugins.tprovoost.sequenceblocks.add.AddRois" className="plugins.tprovoost.sequenceblocks.SequenceBlocks" collapsed="true" definedName="Add rois" height="107" keepsResults="true" width="282" xLocation="471" yLocation="131">
+<variables>
+<input>
+<variable ID="sequence" name="Sequence" runtime="false" visible="true"/>
+<variable ID="rois(s)" name="Roi(s)" runtime="false" visible="true"/>
+<variable ID="remove" name="Remove previous" runtime="false" value="false" visible="true"/>
+</input>
+<output/>
+</variables>
+</block>
+<block ID="1088941543" blockType="plugins.adufour.morphology.FillHolesInROI" className="plugins.adufour.morphology.FillHolesInROI" collapsed="true" definedName="Fill holes in ROI" height="83" keepsResults="true" width="201" xLocation="599" yLocation="52">
+<variables>
+<input>
+<variable ID="List of ROI" name="List of ROI" runtime="false" visible="true"/>
+</input>
+<output>
+<variable ID="List of hole-filled ROI" name="List of hole-filled ROI" runtime="false" visible="true"/>
+</output>
+</variables>
+</block>
+<block ID="1505575698" blockType="plugins.adufour.blocks.tools.Display" className="plugins.adufour.blocks.tools.Display" collapsed="false" definedName="Display" height="252" keepsResults="true" width="320" xLocation="37" yLocation="204">
+<variables>
+<input>
+<variable ID="object" name="object" runtime="false" type="icy.sequence.Sequence" visible="true"/>
+</input>
+<output/>
+</variables>
+</block>
+<block ID="1242399107" blockType="plugins.adufour.roi.ROIMeasures" className="plugins.adufour.roi.ROIMeasures" collapsed="false" definedName="ROI Statistics" height="128" keepsResults="true" width="289" xLocation="481" yLocation="197">
+<variables>
+<input>
+<variable ID="measures" name="Select features..." runtime="false" value="16106130439" visible="true"/>
+<variable ID="Regions of interest" name="Regions of interest" runtime="false" visible="true"/>
+<variable ID="Sequence" name="Sequence" runtime="false" visible="true"/>
+</input>
+<output>
+<variable ID="Workbook" name="Workbook" runtime="false" visible="true"/>
+</output>
+</variables>
+</block>
+<block ID="1621409847" blockType="plugins.adufour.blocks.tools.io.WorkbookToFile" className="plugins.adufour.blocks.tools.io.WorkbookToFile" collapsed="false" definedName="Workbook to file" height="256" keepsResults="true" width="498" xLocation="388" yLocation="332">
+<variables>
+<input>
+<variable ID="workbook" name="workbook" runtime="false" visible="true"/>
+<variable ID="file format" name="file format" runtime="false" value="Spreadsheet" visible="true"/>
+<variable ID="output file" name="output file" runtime="false" value="C:\Users\zyner01\Desktop\testrun" visible="true"/>
+<variable ID="If file exists" name="If file exists" runtime="false" value="Merge_sheets___excluding_first_row" visible="true"/>
+</input>
+<output/>
+</variables>
+</block>
+</blocks>
+<links>
+<link dstBlockID="1606704509" dstVarID="sequence" srcBlockID="1949936108" srcVarID="Sequence"/>
+<link dstBlockID="703045377" dstVarID="Input" srcBlockID="1606704509" srcVarID="extracted"/>
+<link dstBlockID="1503198430" dstVarID="input" srcBlockID="703045377" srcVarID="binary sequence"/>
+<link dstBlockID="1503198430" dstVarID="min. size" srcBlockID="703045377" srcVarID="Min size (px)"/>
+<link dstBlockID="1503198430" dstVarID="max. size" srcBlockID="703045377" srcVarID="Max size (px)"/>
+<link dstBlockID="342255751" dstVarID="rois" srcBlockID="1503198430" srcVarID="list of extracted ROI"/>
+<link dstBlockID="1088941543" dstVarID="List of ROI" srcBlockID="1503198430" srcVarID="list of extracted ROI"/>
+<link dstBlockID="394625501" dstVarID="rois(s)" srcBlockID="342255751" srcVarID="rois"/>
+<link dstBlockID="394625501" dstVarID="sequence" srcBlockID="1949936108" srcVarID="Sequence"/>
+<link dstBlockID="1505575698" dstVarID="object" srcBlockID="394625501" srcVarID="sequence"/>
+<link dstBlockID="1242399107" dstVarID="Regions of interest" srcBlockID="1088941543" srcVarID="List of hole-filled ROI"/>
+<link dstBlockID="1621409847" dstVarID="workbook" srcBlockID="1242399107" srcVarID="Workbook"/>
+<link dstBlockID="1242399107" dstVarID="Sequence" srcBlockID="1949936108" srcVarID="Sequence"/>
+</links>
+<variables>
+<input>
+<variable ID="Series file" blockID="1949936108" value="" visible="true"/>
+<variable ID="1606704509:sequence" blockID="1606704509" visible="false"/>
+<variable ID="1606704509:channel" blockID="1606704509" value="0" visible="false"/>
+<variable ID="703045377:Input" blockID="703045377" visible="false"/>
+<variable ID="703045377:Gaussian pre-filter" blockID="703045377" value="2.0" visible="false"/>
+<variable ID="703045377:Frame" blockID="703045377" value="0" visible="false"/>
+<variable ID="703045377:Number of classes" blockID="703045377" value="5" visible="false"/>
+<variable ID="703045377:Min size (px)" blockID="703045377" value="1000" visible="false"/>
+<variable ID="703045377:Max size (px)" blockID="703045377" value="80000" visible="false"/>
+<variable ID="703045377:Final threshold" blockID="703045377" value="0.0" visible="false"/>
+<variable ID="1503198430:input" blockID="1503198430" visible="false"/>
+<variable ID="1503198430:method" blockID="1503198430" value="BACKGROUND" visible="false"/>
+<variable ID="1503198430:value" blockID="1503198430" value="0" visible="false"/>
+<variable ID="1503198430:no edge (X)" blockID="1503198430" value="true" visible="false"/>
+<variable ID="1503198430:no edge (Y)" blockID="1503198430" value="true" visible="false"/>
+<variable ID="1503198430:no edge (Z)" blockID="1503198430" value="false" visible="false"/>
+<variable ID="1503198430:size filter" blockID="1503198430" value="false" visible="false"/>
+<variable ID="1503198430:min. size" blockID="1503198430" value="1000" visible="false"/>
+<variable ID="1503198430:max. size" blockID="1503198430" value="80000" visible="false"/>
+<variable ID="1503198430:Export to Excel" blockID="1503198430" value="false" visible="false"/>
+<variable ID="1503198430:Excel file" blockID="1503198430" value="" visible="false"/>
+<variable ID="342255751:rois" blockID="342255751" value="11 ROI" visible="false"/>
+<variable ID="342255751:color" blockID="342255751" value="java.awt.Color[r=0,g=255,b=0]" visible="false"/>
+<variable ID="394625501:sequence" blockID="394625501" visible="false"/>
+<variable ID="394625501:rois(s)" blockID="394625501" value="11 ROI" visible="false"/>
+<variable ID="394625501:remove" blockID="394625501" value="false" visible="false"/>
+<variable ID="1088941543:List of ROI" blockID="1088941543" value="11 ROI" visible="false"/>
+<variable ID="1505575698:object" blockID="1505575698" value="" visible="false"/>
+<variable ID="1242399107:measures" blockID="1242399107" value="16106130439" visible="false"/>
+<variable ID="1242399107:Regions of interest" blockID="1242399107" value="11 ROI" visible="false"/>
+<variable ID="1242399107:Sequence" blockID="1242399107" visible="false"/>
+<variable ID="1621409847:workbook" blockID="1621409847" value="" visible="false"/>
+<variable ID="1621409847:file format" blockID="1621409847" value="Spreadsheet" visible="false"/>
+<variable ID="1621409847:output file" blockID="1621409847" value="C:\Users\zyner01\Desktop\testrun" visible="false"/>
+<variable ID="1621409847:If file exists" blockID="1621409847" value="Merge_sheets___excluding_first_row" visible="false"/>
+</input>
+<output>
+<variable ID="iteration" blockID="1949936108" visible="true"/>
+<variable ID="Sequence" blockID="1949936108" visible="true"/>
+<variable ID="1606704509:extracted" blockID="1606704509" visible="false"/>
+<variable ID="703045377:binary sequence" blockID="703045377" visible="false"/>
+<variable ID="703045377:output regions" blockID="703045377" visible="false"/>
+<variable ID="1503198430:labeled sequence" blockID="1503198430" visible="false"/>
+<variable ID="1503198430:objects" blockID="1503198430" visible="false"/>
+<variable ID="1503198430:list of extracted ROI" blockID="1503198430" visible="false"/>
+<variable ID="1088941543:List of hole-filled ROI" blockID="1088941543" visible="false"/>
+<variable ID="1242399107:Workbook" blockID="1242399107" visible="false"/>
+</output>
+</variables>
+</workflow>
+</blocks>
+<links>
+<link dstBlockID="1949936108" dstVarID="Series file" srcBlockID="559929478" srcVarID="file"/>
+</links>
+<variables>
+<input>
+<variable ID="folder" blockID="559929478" value="C:\Users\zyner01\Desktop" visible="true"/>
+<variable ID="extension" blockID="559929478" value=".lif" visible="true"/>
+<variable ID="Include sub-folders" blockID="559929478" value="false" visible="true"/>
+<variable ID="1949936108:Series file" blockID="1949936108" value="" visible="false"/>
+<variable ID="1949936108:1606704509:sequence" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1606704509:channel" blockID="1949936108" value="0" visible="false"/>
+<variable ID="1949936108:703045377:Input" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:703045377:Gaussian pre-filter" blockID="1949936108" value="2.0" visible="false"/>
+<variable ID="1949936108:703045377:Frame" blockID="1949936108" value="0" visible="false"/>
+<variable ID="1949936108:703045377:Number of classes" blockID="1949936108" value="5" visible="false"/>
+<variable ID="1949936108:703045377:Min size (px)" blockID="1949936108" value="1000" visible="false"/>
+<variable ID="1949936108:703045377:Max size (px)" blockID="1949936108" value="80000" visible="false"/>
+<variable ID="1949936108:703045377:Final threshold" blockID="1949936108" value="0.0" visible="false"/>
+<variable ID="1949936108:1503198430:input" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1503198430:method" blockID="1949936108" value="BACKGROUND" visible="false"/>
+<variable ID="1949936108:1503198430:value" blockID="1949936108" value="0" visible="false"/>
+<variable ID="1949936108:1503198430:no edge (X)" blockID="1949936108" value="true" visible="false"/>
+<variable ID="1949936108:1503198430:no edge (Y)" blockID="1949936108" value="true" visible="false"/>
+<variable ID="1949936108:1503198430:no edge (Z)" blockID="1949936108" value="false" visible="false"/>
+<variable ID="1949936108:1503198430:size filter" blockID="1949936108" value="false" visible="false"/>
+<variable ID="1949936108:1503198430:min. size" blockID="1949936108" value="1000" visible="false"/>
+<variable ID="1949936108:1503198430:max. size" blockID="1949936108" value="80000" visible="false"/>
+<variable ID="1949936108:1503198430:Export to Excel" blockID="1949936108" value="false" visible="false"/>
+<variable ID="1949936108:1503198430:Excel file" blockID="1949936108" value="" visible="false"/>
+<variable ID="1949936108:342255751:rois" blockID="1949936108" value="11 ROI" visible="false"/>
+<variable ID="1949936108:342255751:color" blockID="1949936108" value="java.awt.Color[r=0,g=255,b=0]" visible="false"/>
+<variable ID="1949936108:394625501:sequence" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:394625501:rois(s)" blockID="1949936108" value="11 ROI" visible="false"/>
+<variable ID="1949936108:394625501:remove" blockID="1949936108" value="false" visible="false"/>
+<variable ID="1949936108:1088941543:List of ROI" blockID="1949936108" value="11 ROI" visible="false"/>
+<variable ID="1949936108:1505575698:object" blockID="1949936108" value="" visible="false"/>
+<variable ID="1949936108:1242399107:measures" blockID="1949936108" value="16106130439" visible="false"/>
+<variable ID="1949936108:1242399107:Regions of interest" blockID="1949936108" value="11 ROI" visible="false"/>
+<variable ID="1949936108:1242399107:Sequence" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1621409847:workbook" blockID="1949936108" value="" visible="false"/>
+<variable ID="1949936108:1621409847:file format" blockID="1949936108" value="Spreadsheet" visible="false"/>
+<variable ID="1949936108:1621409847:output file" blockID="1949936108" value="C:\Users\zyner01\Desktop\testrun" visible="false"/>
+<variable ID="1949936108:1621409847:If file exists" blockID="1949936108" value="Merge_sheets___excluding_first_row" visible="false"/>
+</input>
+<output>
+<variable ID="iteration" blockID="559929478" visible="true"/>
+<variable ID="file" blockID="559929478" visible="true"/>
+<variable ID="1949936108:iteration" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:Sequence" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1606704509:extracted" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:703045377:binary sequence" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:703045377:output regions" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1503198430:labeled sequence" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1503198430:objects" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1503198430:list of extracted ROI" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1088941543:List of hole-filled ROI" blockID="1949936108" visible="false"/>
+<variable ID="1949936108:1242399107:Workbook" blockID="1949936108" visible="false"/>
+</output>
+</variables>
+</workflow>
+</blocks>
+<links/>
+</protocol>
